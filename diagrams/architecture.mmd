@@ -1,0 +1,60 @@
+flowchart LR
+    Human[Human user]
+    OwnerUI[Streamlit PawPal+ UI]
+    CLI[CLI demo]
+    Domain[Owner, Pet, Task, Scheduler]
+    Knowledge[(knowledge_base/pet_care.json)]
+
+    Human -->|manages pets and asks questions| OwnerUI
+    OwnerUI -->|pet and task operations| Domain
+    CLI -->|schedule operations| Domain
+
+    subgraph RAG[Pet-care RAG assistant]
+        Input[Validate question]
+        Retrieve[Keyword-overlap retrieval]
+        Risk{High-risk question?}
+        HasSources{Relevant passages found?}
+        Prompt[Build prompt from question and retrieved context]
+        Ollama[Local Ollama model<br/>gemma3:1b by default]
+        Grounding{Answer safe and context-related?}
+        ModelAnswer[Model-generated answer]
+        SafetyAnswer[Safety response<br/>model not called]
+        Insufficient[Insufficient-information response<br/>model not called]
+        Fallback[Evidence-only extractive fallback]
+        Response[Answer, method label, and available source references]
+
+        Input --> Retrieve
+        Retrieve --> Risk
+        Risk -->|yes| SafetyAnswer
+        Risk -->|no| HasSources
+        HasSources -->|no| Insufficient
+        HasSources -->|yes: question and passages| Prompt
+        Prompt -->|context-grounded request| Ollama
+        Ollama --> Grounding
+        Grounding -->|safe and context-related| ModelAnswer
+        Grounding -->|unsafe or ungrounded| Fallback
+        Ollama -. service unavailable .-> Fallback
+        ModelAnswer --> Response
+        SafetyAnswer --> Response
+        Insufficient --> Response
+        Fallback --> Response
+    end
+
+    OwnerUI --> Input
+    Knowledge --> Retrieve
+    Response -->|answer and sources for review| OwnerUI
+    OwnerUI -->|displays answer and references| Human
+
+    subgraph Verification[Offline verification]
+        Tests[pytest suite<br/>fakes and mocked service failures]
+        Evaluation[evaluate_rag.py<br/>expected retrieval hits and lexical overlap]
+        Metrics[Evaluation metrics<br/>not a factuality proof]
+        TestDoubles[Fake generators and mocked Ollama HTTP]
+
+        Evaluation --> Retrieve
+        Evaluation --> Fallback
+        Evaluation --> Metrics
+        Tests -. verifies component behavior .-> Retrieve
+        Tests -. uses .-> TestDoubles
+        TestDoubles -. stand in for .-> Ollama
+    end

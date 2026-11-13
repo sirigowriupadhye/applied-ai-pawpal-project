@@ -1,6 +1,12 @@
+import logging
+
 import streamlit as st
 
 from pawpal_system import Owner, Pet, Task, Scheduler
+from rag_assistant import PetCareAssistant
+
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="PawPal+", page_icon="🐾", layout="centered")
 
@@ -8,39 +14,36 @@ st.title("🐾 PawPal+")
 
 st.markdown(
     """
-Welcome to the PawPal+ starter app.
-
-This file is intentionally thin. It gives you a working Streamlit app so you can start quickly,
-but **it does not implement the project logic**. Your job is to design the system and build it.
-
-Use this app as your interactive demo once your backend classes/functions exist.
+Welcome to PawPal+. Manage pets and care tasks, view today's schedule, and ask
+general pet-care questions with source references.
 """
 )
 
 with st.expander("Scenario", expanded=True):
     st.markdown(
         """
-**PawPal+** is a pet care planning assistant. It helps a pet owner plan care tasks
-for their pet(s) based on constraints like time, priority, and preferences.
+**PawPal+** helps a pet owner keep track of their pets and scheduled care tasks.
+Its assistant retrieves general care information and shows the references used.
 
-You will design and implement the scheduling logic and connect it to this Streamlit UI.
+The schedule shows tasks due today in time order; the assistant is not a substitute
+for advice from a veterinarian.
 """
     )
 
 with st.expander("What you need to build", expanded=True):
     st.markdown(
         """
-At minimum, your system should:
-- Represent pet care tasks (what needs to happen, how long it takes, priority)
-- Represent the pet and the owner (basic info and preferences)
-- Build a plan/schedule for a day that chooses and orders tasks based on constraints
-- Explain the plan (why each task was chosen and when it happens)
+PawPal+ lets you:
+- Manage an owner profile and multiple pets
+- Add and review care tasks for each pet
+- View tasks due today in chronological order
+- Ask everyday pet-care questions and review retrieved sources
 """
     )
 
 st.divider()
 
-st.subheader("Quick Demo Inputs (UI only)")
+st.subheader("Owner and Pets")
 owner_name = st.text_input("Owner name", value="Jordan")
 pet_name = st.text_input("Pet name", value="Mochi")
 species = st.selectbox("Species", ["dog", "cat", "other"])
@@ -64,7 +67,7 @@ else:
     st.info("No pets yet. Add one above.")
 
 st.markdown("### Tasks")
-st.caption("Add a few tasks. In your final version, these should feed into your scheduler.")
+st.caption("Add care tasks to a pet; tasks due today appear in the schedule below.")
 
 selected_pet_name = st.selectbox("Add task to which pet?", [p.name for p in owner.pets])
 
@@ -108,12 +111,11 @@ else:
 st.divider()
 
 st.subheader("Build Schedule")
-st.caption("This button should call your scheduling logic once you implement it.")
+st.caption("Tasks due today are shown in time order.")
 
 if st.button("Generate schedule"):
     scheduler = Scheduler(owner)
-    # Scheduler.sort_by_time() is still a stub, so sort here ("HH:MM" sorts as text).
-    tasks = sorted(scheduler.get_all_tasks(), key=lambda task: task.time)
+    tasks = scheduler.get_todays_schedule()
     if tasks:
         pet_for_task = {id(task): pet.name for pet in owner.pets for task in pet.get_tasks()}
         st.success(f"Today's Schedule for {owner.name}")
@@ -124,4 +126,41 @@ if st.button("Generate schedule"):
             ]
         )
     else:
-        st.warning("No tasks to schedule yet. Add one above.")
+        st.warning("No tasks are due today. Add a task or check its due date.")
+
+st.divider()
+
+st.subheader("Ask PawPal+")
+st.caption(
+    "Answers use retrieved references and a local Ollama model when available. "
+    "If the model is unavailable, PawPal+ shows retrieved text without claiming "
+    "it was AI-generated. This is general information, not veterinary advice."
+)
+pet_care_question = st.text_area(
+    "What would you like to know about everyday pet care?",
+    max_chars=500,
+    key="pet_care_question",
+)
+
+if st.button("Ask question"):
+    try:
+        with st.spinner("Searching pet-care references..."):
+            response = PetCareAssistant().ask(pet_care_question)
+        if response.warning:
+            st.warning(response.warning)
+        if response.safety_redirect or response.insufficient:
+            st.info(response.answer)
+        else:
+            st.write(response.answer)
+        st.caption(f"Generation method: {response.generation_method}")
+        if response.sources:
+            with st.expander("Sources", expanded=True):
+                for source in response.sources:
+                    st.markdown(f"**{source.title}**")
+                    st.markdown(f"[{source.source_name}]({source.source_url})")
+                    st.caption(source.content)
+    except ValueError as error:
+        st.warning(str(error))
+    except Exception as error:
+        logger.error("Pet-care assistant failed (%s).", type(error).__name__)
+        st.error("The assistant could not load its references. Please try again later.")

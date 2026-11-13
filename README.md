@@ -25,15 +25,15 @@ Your final app should:
 ## Getting started
 ## Implementation summary
 
-PawPal+ is built from four classes in `pawpal_system.py`: Task, Pet, Owner and Scheduler. The class diagram is in `diagrams/uml_final.mmd`.
+PawPal+ keeps its four core classes in `pawpal_system.py`: Task, Pet, Owner and Scheduler. The application architecture, including the RAG assistant, is in `diagrams/architecture.mmd`.
 
 A Task represents one care activity. It stores a description, a time in 24-hour "HH:MM" format, a frequency ("once", "daily" or "weekly"), a completed flag, and a due date that defaults to today. It can mark itself complete, and its next_occurrence() method returns a new, incomplete copy due one day later for daily tasks or seven days later for weekly tasks. Tasks with any other frequency return nothing.
 
 A Pet stores its name, species, age and its own list of tasks, and it can add a task, remove a task, or return its tasks. An Owner stores a name and a list of pets. It can add or remove pets, and its get_all_tasks() method collects the tasks from every pet into one list.
 
-The Scheduler is connected to a single Owner and reaches tasks only through Owner.get_all_tasks(), never directly through pets. It sorts tasks by due date and then time with sort_by_time(), filters them by pet name and completion status with filter_tasks(), and warns about conflicts with detect_conflicts(), which reports each date and time where two or more unfinished tasks overlap across all of the owner's pets. When a task is finished, complete_task() marks it done and, for daily and weekly tasks, adds the next occurrence to the same pet without creating a duplicate. The get_todays_schedule() method is not implemented yet.
+The Scheduler is connected to a single Owner and reaches tasks through Owner.get_all_tasks(). It sorts tasks by due date and time, filters by pet and completion status, detects exact date-and-time conflicts, and creates the next occurrence of completed daily or weekly tasks. `get_todays_schedule()` returns tasks due today in time order; it accepts an optional date for deterministic use and retains completed tasks so they can be shown in the schedule.
 
-The same backend serves two front ends: a Streamlit app (app.py) for adding pets and tasks and generating a sorted schedule with conflict warnings, and a command-line demo (main.py) that also shows filtering and recurring tasks. The behavior is covered by 35 automated tests in tests/test_pawpal.py.
+The Streamlit app (`app.py`) manages pets and tasks, generates today's schedule, and provides the pet-care question assistant. The command-line demo (`main.py`) continues to demonstrate scheduling, filtering, conflicts, and recurring tasks. Tests cover both the existing scheduler and the RAG workflow.
 
 
 ### Setup
@@ -43,6 +43,22 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+## Pet-Care Assistant (RAG)
+
+The assistant retrieves relevant passages from `knowledge_base/pet_care.json` before asking a model to answer. Retrieval is a dependency-free keyword-overlap search, not a vector database. Each answer displays the references that were retrieved.
+
+When available, generation uses a local Ollama HTTP service with the `gemma3:1b` model by default. No API key or paid service is used. To enable it, install Ollama, download a model, and run Ollama locally:
+
+```powershell
+ollama pull gemma3:1b
+ollama serve
+python -m streamlit run app.py
+```
+
+Set `PAWPAL_OLLAMA_MODEL` to use another locally available model, or `PAWPAL_OLLAMA_URL` to change the local generation endpoint. If the service is unavailable, the app clearly labels its response as an evidence-only extractive fallback; it does not describe that fallback as AI-generated. The fallback uses retrieved text only.
+
+The assistant provides general educational information, not diagnoses or treatment instructions. It redirects high-risk questions toward a veterinarian and declines to answer confidently when retrieval finds no relevant passage. The small curated knowledge base is not a substitute for professional veterinary advice.
 
 ### Suggested workflow
 
@@ -142,15 +158,20 @@ Features:
 | pad(text, width) | Pads text to a column width using display_width(). |
 
 
-## 🧪 Testing PawPal+
+## Testing PawPal+
 
 ```bash
 # Run the full test suite:
-pytest
+python -m pytest -q
+
+# Run the deterministic retrieval and grounding evaluation:
+python evaluate_rag.py
 
 # Run with coverage:
 pytest --cov
 ```
+
+The evaluation script uses an evidence-only generator, so it makes no model calls. It reports whether each expected knowledge-base item was retrieved and a simple lexical answer/context overlap score. The overlap score is an indicator, not proof that an answer is factually correct.
 
 Sample test output:
 
@@ -166,8 +187,8 @@ Sample test output:
 |---------|-----------|-------|
 | Task sorting |Scheduler.sort_by_time()| Sorts all of the owner's tasks by scheduled time in chronological order. Returns a new sorted list without changing the original task lists.|
 | Filtering |Scheduler.filter_tasks() | Filters tasks by pet name and/or completion status. Returns a filtered list without deleting or modifying the original tasks.|
-| Conflict handling |Scheduler.detect_conflicts() |Intended to identify tasks that overlap in their scheduled times.|
-| Recurring tasks |Scheduler.get_todays_schedule()| Planned feature: determine which tasks belong in today's schedule using their frequency and scheduled time.|
+| Conflict handling |Scheduler.detect_conflicts() |Reports exact date-and-time matches among unfinished tasks.|
+| Today's schedule |Scheduler.get_todays_schedule()| Returns tasks due on the selected date, sorted by time.|
 
 ## 📸 Demo Walkthrough
 
@@ -186,17 +207,7 @@ Describe your app in numbered steps so a reader can follow along without watchin
 
 ## Testing PawPal+
 
-Test Results:
-
-================================================== test session starts ==================================================
-platform win32 -- Python 3.14.8, pytest-9.1.1, pluggy-1.6.0
-rootdir: C:\Users\sirig\Downloads\ai110-module2show-pawpal-starter
-plugins: anyio-4.15.1
-collected 35 items                                                                                                       
-
-tests\test_pawpal.py ...................................                                                           [100%]
-
-================================================== 35 passed in 0.22s ===================================================
+Run the commands above to see the current test and evaluation results in your environment.
 
 Confidence level:
 

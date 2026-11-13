@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -104,6 +104,37 @@ def test_sort_by_time_orders_by_date_then_time():
     owner.add_pet(pet)
 
     assert Scheduler(owner).sort_by_time() == [today_early, today_late, tomorrow_early]
+
+
+def test_get_todays_schedule_filters_date_and_sorts_by_time():
+    today = date(2026, 10, 17)
+    pet = Pet("Mochi", "dog")
+    tomorrow = Task("Tomorrow walk", "07:00", due_date=date(2026, 10, 18))
+    late = Task("Evening play", "18:00", due_date=today)
+    early = Task("Morning walk", "07:30", due_date=today)
+    completed = Task("Breakfast", "08:00", due_date=today, completed=True)
+    for task in (tomorrow, late, completed, early):
+        pet.add_task(task)
+    owner = Owner("Jordan")
+    owner.add_pet(pet)
+    assert Scheduler(owner).get_todays_schedule(today) == [early, completed, late]
+
+
+def test_get_todays_schedule_is_empty_when_no_tasks_are_due_today():
+    tomorrow = date(2026, 10, 18)
+    pet = Pet("Mochi", "dog", tasks=[Task("Walk", "07:30", due_date=tomorrow)])
+    owner = Owner("Jordan", pets=[pet])
+    assert Scheduler(owner).get_todays_schedule(date(2026, 10, 17)) == []
+
+
+def test_get_todays_schedule_defaults_to_the_current_date():
+    today_task = Task("Walk", "07:30", due_date=date.today())
+    tomorrow_task = Task(
+        "Tomorrow walk", "07:30", due_date=date.today() + timedelta(days=1)
+    )
+    scheduler, _ = _owner_with_pet(tomorrow_task, today_task)
+
+    assert scheduler.get_todays_schedule() == [today_task]
 
 
 def test_task_marked_complete_directly_still_gets_next_occurrence():

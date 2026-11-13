@@ -1,0 +1,34 @@
+[
+  {
+    "id": "daily-basics",
+    "title": "Fresh water and balanced food",
+    "content": "Keep clean, fresh water available. Choose food that is complete and balanced for the animal's species and life stage. Feeding needs vary; ask a veterinarian for advice about an individual pet's diet or portions.",
+    "source_name": "American Veterinary Medical Association (AVMA), Petcare",
+    "source_url": "https://www.avma.org/resources-tools/pet-owners/petcare",
+    "keywords": ["water", "hydration", "drink", "drinking", "food", "feeding", "diet", "nutrition", "portion", "balanced"]
+  },
+  {
+    "id": "preventive-care",
+    "title": "Routine preventive veterinary care",
+    "content": "Routine veterinary care helps support a pet's overall health. The right visit schedule and preventive care depend on the pet's age, health, and circumstances, so follow a veterinarian's recommendations. Ask a veterinarian about noticeable changes in appetite, thirst, activity, or behavior.",
+    "source_name": "American Veterinary Medical Association (AVMA), Petcare",
+    "source_url": "https://www.avma.org/resources-tools/pet-owners/petcare",
+    "keywords": ["vet", "veterinarian", "checkup", "check-up", "appointment", "preventive", "wellness", "behavior", "appetite", "thirst"]
+  },
+  {
+    "id": "safe-activity",
+    "title": "Activity and enrichment",
+    "content": "Choose activity and enrichment that suit the pet's species, age, and abilities. Needs differ between individual pets; ask a veterinarian for guidance when health or mobility affects activity choices.",
+    "source_name": "American Veterinary Medical Association (AVMA), Petcare",
+    "source_url": "https://www.avma.org/resources-tools/pet-owners/petcare",
+    "keywords": ["exercise", "walk", "play", "activity", "enrichment", "movement", "mobility", "suitable"]
+  },
+  {
+    "id": "unsafe-foods",
+    "title": "Foods that may be harmful to pets",
+    "content": "Some common human foods can be harmful to pets, including chocolate, grapes and raisins, onions and garlic, products containing xylitol, caffeine, and alcohol. Risk depends on the substance, amount, and animal. If a pet may have eaten something harmful, contact a veterinarian or animal poison-control service promptly; do not rely on this general list to assess an exposure.",
+    "source_name": "ASPCA Animal Poison Control Center, People Foods to Avoid Feeding Your Pets",
+    "source_url": "https://www.aspca.org/pet-care/animal-poison-control/people-foods-avoid-feeding-your-pets",
+    "keywords": ["toxic", "toxicity", "harmful", "unsafe", "chocolate", "grape", "grapes", "raisin", "raisins", "onion", "garlic", "xylitol", "caffeine", "alcohol", "food", "poison"]
+  }
+]

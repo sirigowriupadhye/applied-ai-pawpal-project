@@ -130,10 +130,17 @@ class Scheduler:
         pet.add_task(next_task)
         return next_task
 
-    def get_todays_schedule(self) -> List[Task]:
-        """Return the tasks planned for today."""
-        # TODO: decide how "today" is determined (frequency + time) and filter.
-        raise NotImplementedError
+    def get_todays_schedule(self, today: Optional[date] = None) -> List[Task]:
+        """Return today's tasks, ordered by time, including completed tasks.
+
+        Completed tasks remain visible so the schedule can show what has
+        already been done. Pass a date explicitly to make the view testable.
+        """
+        target_date = today or date.today()
+        return [
+            task for task in self.sort_by_time()
+            if task.due_date == target_date
+        ]
 
     def sort_by_time(self) -> List[Task]:
         """Return all of the owner's tasks in chronological order.
