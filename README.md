@@ -73,27 +73,72 @@ The model defaults to `gemma3:1b` at `http://localhost:11434/api/generate`. Set 
 
 The assistant provides general educational information, not diagnoses or treatment instructions. It redirects high-risk health questions toward a veterinarian and declines to answer confidently when retrieval finds no relevant passage. The small curated knowledge base is not a substitute for professional veterinary advice.
 
-## Sample Interactions
+## Text-Based Execution Evidence
 
-The following are observed outputs from the application on November 13, 2026. Ollama was unavailable during these runs, so the first two answers are actual **evidence-only fallback responses**, not AI-generated text. The third demonstrates the no-relevant-information path.
+This PowerShell run exercised the same `PetCareAssistant` used by the Streamlit app with three inputs. Ollama was unavailable, so the supported food-safety question used the evidence-only fallback, not model-generated text. The other cases show the safety redirect and no-relevant-information behavior. The output below was captured from the project environment on November 13, 2026; model-generated output can differ when Ollama is running.
 
-**Question:** What foods can be harmful to pets?
+```powershell
+@'
+from rag_assistant import OllamaGenerator, PetCareAssistant
 
-**Observed answer:** “The available references say: Some common human foods can be harmful to pets, including chocolate, grapes and raisins, onions and garlic, products containing xylitol, caffeine, and alcohol. Risk depends on the substance, amount, and animal. If a pet may have eaten something harmful, contact a veterinarian or animal poison-control service promptly; do not rely on this general list to assess an exposure.”
+assistant = PetCareAssistant(generator=OllamaGenerator(timeout=1))
+questions = (
+	"What foods can be harmful to pets?",
+	"Can you diagnose my dog's symptoms?",
+	"How do telescopes observe distant stars?",
+)
+for question in questions:
+	result = assistant.ask(question)
+	source_names = ", ".join(source.source_name for source in result.sources) or "None"
+	print(f"INPUT: {question}\nOUTPUT: {result.answer}\nMETHOD: {result.generation_method}\nSOURCES: {source_names}\nWARNING: {result.warning or 'None'}\n")
+'@ | python -
+```
 
-**Method and source:** Evidence-only extractive fallback; ASPCA Animal Poison Control Center, [People Foods to Avoid Feeding Your Pets](https://www.aspca.org/pet-care/animal-poison-control/people-foods-avoid-feeding-your-pets).
+```text
+Model service failed (GenerationError); using retrieved text only.
+INPUT: What foods can be harmful to pets?
+OUTPUT: The available references say: Some common human foods can be harmful to pets, including chocolate, grapes and raisins, onions and garlic, products containing xylitol, caffeine, and alcohol. Risk depends on the substance, amount, and animal. If a pet may have eaten something harmful, contact a veterinarian or animal poison-control service promptly; do not rely on this general list to assess an exposure.
+METHOD: Evidence-only extractive fallback (no generative model used)
+SOURCES: ASPCA Animal Poison Control Center, People Foods to Avoid Feeding Your Pets
+WARNING: The local Ollama service is unavailable. Showing retrieved text only.
 
-**Question:** How should I provide water?
+INPUT: Can you diagnose my dog's symptoms?
+OUTPUT: I can't diagnose a condition or provide medication or treatment instructions. For a possible harmful ingestion, concerning symptoms, or an urgent health concern, contact your veterinarian or an emergency veterinary clinic promptly.
+METHOD: Safety response (no model used)
+SOURCES: None
+WARNING: None
 
-**Observed answer:** “The available references say: Keep clean, fresh water available. Choose food that is complete and balanced for the animal's species and life stage. Feeding needs vary; ask a veterinarian for advice about an individual pet's diet or portions.”
+INPUT: How do telescopes observe distant stars?
+OUTPUT: I couldn't find enough relevant information in PawPal+'s knowledge base to answer confidently. Please consult a veterinarian for advice specific to your pet.
+METHOD: Not generated (no relevant sources)
+SOURCES: None
+WARNING: None
+```
 
-**Method and source:** Evidence-only extractive fallback; American Veterinary Medical Association (AVMA), [Petcare](https://www.avma.org/resources-tools/pet-owners/petcare).
+The separate offline evaluation command checks four expected pet-care passages, citation metadata, answer/context overlap, and an unsupported question:
 
-**Question:** How do telescopes observe distant stars?
+```text
+$ python evaluate_rag.py
+PASS expected passage retrieved (daily-basics)
+PASS source name and HTTPS URL returned
+PASS answer/context overlap meets 50% minimum
+PASS expected passage retrieved (unsafe-foods)
+PASS source name and HTTPS URL returned
+PASS answer/context overlap meets 50% minimum
+PASS expected passage retrieved (preventive-care)
+PASS source name and HTTPS URL returned
+PASS answer/context overlap meets 50% minimum
+PASS expected passage retrieved (safe-activity)
+PASS source name and HTTPS URL returned
+PASS answer/context overlap meets 50% minimum
+PASS unsupported question returns no-source response without generation
+Expected retrieval hit rate: 100% (4 cases)
+Mean answer-context token overlap: 90%
+Grounding overlap is a simple lexical indicator, not a factuality proof.
+Evaluation checks: 13/13 passed
+```
 
-**Observed answer:** “I couldn't find enough relevant information in PawPal+'s knowledge base to answer confidently. Please consult a veterinarian for advice specific to your pet.”
-
-**Method and sources:** No answer generation; no sources were retrieved. This verified example also shows a limitation of the current generic fallback message: it recommends a veterinarian even for an unrelated, non-pet question.
+The no-source response currently recommends consulting a veterinarian even for an unrelated question; that is a known limitation of its generic message.
 
 ## Design Decisions
 
