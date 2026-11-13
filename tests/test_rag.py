@@ -53,6 +53,11 @@ def test_retriever_returns_no_result_for_unrelated_question():
     assert KnowledgeRetriever().retrieve("How do telescopes observe distant stars?") == []
 
 
+def test_missing_knowledge_file_has_a_clear_error(tmp_path):
+    with pytest.raises(ValueError, match="knowledge base could not be loaded"):
+        KnowledgeRetriever(tmp_path / "missing.json")
+
+
 def test_assistant_retrieves_context_before_generation_and_cites_it():
     generator = RecordingGenerator()
     result = PetCareAssistant(generator=generator).ask("How should I provide water?")
@@ -72,6 +77,25 @@ def test_insufficient_information_does_not_call_generator():
     assert result.sources == ()
     assert generator.calls == []
     assert "couldn't find enough" in result.answer
+
+
+def test_retrieval_error_returns_safe_message_and_does_not_log_question(caplog):
+    class BrokenRetriever:
+        def retrieve(self, question):
+            raise OSError("private retrieval detail")
+
+    generator = RecordingGenerator()
+    question = "My private pet record retrieval question"
+    result = PetCareAssistant(retriever=BrokenRetriever(), generator=generator).ask(question)
+
+    assert result.insufficient is True
+    assert result.sources == ()
+    assert result.generation_method == "Not generated (retrieval error)"
+    assert "could not access" in result.answer
+    assert generator.calls == []
+    assert "OSError" in caplog.text
+    assert question not in caplog.text
+    assert "private retrieval detail" not in caplog.text
 
 
 @pytest.mark.parametrize("question", ["", "  ", "x", None, "a" * 501, "hi\x00there"])

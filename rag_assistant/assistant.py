@@ -57,7 +57,23 @@ class PetCareAssistant:
     def ask(self, question: str) -> AssistantResponse:
         """Answer a validated question using retrieved passages as context."""
         clean_question = self._validate_question(question)
-        sources = tuple(self.retriever.retrieve(clean_question))
+        try:
+            sources = tuple(self.retriever.retrieve(clean_question))
+        except Exception as error:
+            logger.error(
+                "Pet-care retrieval failed (%s); no answer was generated.",
+                type(error).__name__,
+            )
+            return AssistantResponse(
+                answer=(
+                    "PawPal+ could not access its pet-care references, so it cannot "
+                    "answer this question right now. Please try again later."
+                ),
+                sources=(),
+                generation_method="Not generated (retrieval error)",
+                insufficient=True,
+                warning="The pet-care knowledge base is unavailable.",
+            )
         logger.info("Pet-care retrieval completed: %d passage(s).", len(sources))
 
         if _HIGH_RISK_TERMS.search(clean_question):
